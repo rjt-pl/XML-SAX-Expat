@@ -2,7 +2,7 @@
 ###
 # XML::SAX::Expat - SAX2 Driver for Expat (XML::Parser)
 # Robin Berjon <robin@knowscape.com>
-# 26/11/2001 - v.0.20
+# 06/12/2001 - v.0.30
 # 15/10/2001 - v.0.01
 ###
 
@@ -13,7 +13,7 @@ use XML::NamespaceSupport   qw();
 use XML::Parser             qw();
 
 use vars qw($VERSION);
-$VERSION = '0.20';
+$VERSION = '0.30';
 
 
 #,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,#
@@ -235,9 +235,9 @@ sub _handle_start {
 sub _handle_end {
     my $self = shift;
 
-    my $element = pop @{$self->{_NodeStack}};
-    delete $element->{Attributes};
-    $self->SUPER::end_element($element);
+    my %element = %{pop @{$self->{_NodeStack}}};
+    delete $element{Attributes};
+    $self->SUPER::end_element(\%element);
 
     my $prev_ns = pop @{$self->{_NSStack}};
     for my $ns (@$prev_ns) {
@@ -311,10 +311,14 @@ sub _handle_end_cdata {
 #-------------------------------------------------------------------#
 sub _handle_xml_decl {
     my $self        = shift;
+    my $expat       = shift;
     my $version     = shift;
     my $encoding    = shift;
     my $standalone  = shift;
 
+    if (not defined $standalone) { $standalone = '';    }
+    elsif ($standalone)          { $standalone = 'yes'; }
+    else                         { $standalone = 'no';  }
     my $xd = $self->_create_node(
                                     Version     => $version,
                                     Encoding    => $encoding,
@@ -329,6 +333,7 @@ sub _handle_xml_decl {
 #-------------------------------------------------------------------#
 sub _handle_notation_decl {
     my $self        = shift;
+    my $expat       = shift;
     my $notation    = shift;
     shift;
     my $system      = shift;
@@ -348,6 +353,7 @@ sub _handle_notation_decl {
 #-------------------------------------------------------------------#
 sub _handle_unparsed_entity {
     my $self        = shift;
+    my $expat       = shift;
     my $name        = shift;
     my $system      = shift;
     my $public      = shift;
@@ -359,7 +365,7 @@ sub _handle_unparsed_entity {
                                     SystemId    => $system,
                                     Notation    => $notation,
                                  );
-    $self->SUPER::notation_decl($ue);
+    $self->SUPER::unparsed_entity_decl($ue);
 }
 #-------------------------------------------------------------------#
 
@@ -368,6 +374,7 @@ sub _handle_unparsed_entity {
 #-------------------------------------------------------------------#
 sub _handle_element_decl {
     my $self    = shift;
+    my $expat   = shift;
     my $name    = shift;
     my $model   = shift;
 
@@ -385,6 +392,7 @@ sub _handle_element_decl {
 #-------------------------------------------------------------------#
 sub _handle_attr_decl {
     my $self    = shift;
+    my $expat   = shift;
     my $ename   = shift;
     my $aname   = shift;
     my $type    = shift;
@@ -427,6 +435,7 @@ sub _handle_attr_decl {
 #-------------------------------------------------------------------#
 sub _handle_entity_decl {
     my $self    = shift;
+    my $expat   = shift;
     my $name    = shift;
     my $val     = shift;
     my $sys     = shift;
@@ -464,6 +473,7 @@ sub _handle_entity_decl {
 #-------------------------------------------------------------------#
 sub _handle_start_doctype {
     my $self    = shift;
+    my $expat   = shift;
     my $name    = shift;
     my $sys     = shift;
     my $pub     = shift;
@@ -561,7 +571,6 @@ set_document_locator is not yet called.
 =head1 TODO
 
   - reuse Ken's tests and add more
-  - implement the entire spec
 
 =head1 AUTHOR
 

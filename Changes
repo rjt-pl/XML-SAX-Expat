@@ -1,11 +1,14 @@
 
 Revision history for XML::SAX::Expat:
 
-0.05 - 0.20 mon 2001126 22:53:42
+0.20 - 0.30 mon 20011206 21:03:32
+	- a bunch of bugfixes
+
+0.05 - 0.20 mon 20011126 22:53:42
 	- added most missing callbacks
 	- made a few bits saner
 
-0.05  sat 2001118 23:01:08
+0.05  sat 20011118 23:01:08
 	- upgraded many bits
 	- prepared for CPAN
 	- added support for XML::SAX
