@@ -1,0 +1,16 @@
+
+Revision history for XML::SAX::Expat:
+
+0.05  sat 2001118 23:01:08
+	- upgraded many bits
+	- prepared for CPAN
+	- added support for XML::SAX
+
+0.02 - 0.04  tue 20011030 20:46:42
+	- many small changes making it more SAX2 compliant, and a switch
+	to using XML::SAX::Base instead of the deprecated XML::Filter::Base
+
+0.01  mon 20011015 13:53:14
+	- original version
+	- stole Ken's original code and modified it, using techniques
+	based on the recent XML::Filter::Base
