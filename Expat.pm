@@ -2,7 +2,7 @@
 ###
 # XML::SAX::Expat - SAX2 Driver for Expat (XML::Parser)
 # Robin Berjon <robin@knowscape.com>
-# 06/12/2001 - v.0.30
+# 04/07/2003 - v.0.36
 # 15/10/2001 - v.0.01
 ###
 
@@ -13,7 +13,7 @@ use XML::NamespaceSupport   qw();
 use XML::Parser             qw();
 
 use vars qw($VERSION);
-$VERSION = '0.35';
+$VERSION = '0.36';
 
 
 #,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,#
@@ -91,7 +91,11 @@ sub _create_parser {
     die "ParserReference: parser instance ($self) already parsing\n"
          if $self->{_InParse};
 
-    my $expat = XML::Parser->new;
+    my $featUri = 'http://xml.org/sax/features/';
+    my $ppe = ($self->get_feature($featUri . 'external-general-entities') or
+               $self->get_feature($featUri . 'external-parameter-entities') ) ? 'yes' : 'no';
+
+    my $expat = XML::Parser->new( ParseParamEnt => $ppe );
     $expat->{__XSE} = $self;
     $expat->setHandlers(
                         Init        => \&_handle_init,
@@ -119,6 +123,7 @@ sub _create_parser {
     $self->{_NodeStack} = [];
     $self->{_NSStack} = [];
     $self->{_NSHelper} = XML::NamespaceSupport->new({xmlns => 1});
+    $self->{_started} = 0;
 
     return $expat;
 }
@@ -146,11 +151,11 @@ sub _cleanup {
 # _handle_init
 #-------------------------------------------------------------------#
 sub _handle_init {
-    my $self    = shift()->{__XSE};
+    #my $self    = shift()->{__XSE};
 
-    my $document = {};
-    push @{$self->{_NodeStack}}, $document;
-    $self->SUPER::start_document($document);
+    #my $document = {};
+    #push @{$self->{_NodeStack}}, $document;
+    #$self->SUPER::start_document($document);
 }
 #-------------------------------------------------------------------#
 
@@ -160,8 +165,8 @@ sub _handle_init {
 sub _handle_final {
     my $self    = shift()->{__XSE};
 
-    my $document = pop @{$self->{_NodeStack}};
-    return $self->SUPER::end_document($document);
+    #my $document = pop @{$self->{_NodeStack}};
+    return $self->SUPER::end_document({});
 }
 #-------------------------------------------------------------------#
 
@@ -172,6 +177,9 @@ sub _handle_start {
     my $self    = shift()->{__XSE};
     my $e_name  = shift;
     my %attr    = @_;
+
+    # start_document data
+    $self->_handle_start_document({}) unless $self->{_started};
 
     # take care of namespaces
     my $nsh = $self->{_NSHelper};
@@ -232,7 +240,7 @@ sub _handle_end {
 
     my $prev_ns = pop @{$self->{_NSStack}};
     for my $ns (@$prev_ns) {
-        $self->SUPER::end_prefix_mapping($ns);
+        $self->SUPER::end_prefix_mapping( { %$ns } );
     }
     $self->{_NSHelper}->pop_context;
 }
@@ -242,6 +250,7 @@ sub _handle_end {
 # _handle_char
 #-------------------------------------------------------------------#
 sub _handle_char {
+    $_[0]->{__XSE}->_handle_start_document({}) unless $_[0]->{__XSE}->{_started};
     $_[0]->{__XSE}->SUPER::characters({ Data => $_[1] });
 }
 #-------------------------------------------------------------------#
@@ -250,6 +259,7 @@ sub _handle_char {
 # _handle_comment
 #-------------------------------------------------------------------#
 sub _handle_comment {
+    $_[0]->{__XSE}->_handle_start_document({}) unless $_[0]->{__XSE}->{_started};
     $_[0]->{__XSE}->SUPER::comment({ Data => $_[1] });
 }
 #-------------------------------------------------------------------#
@@ -258,6 +268,7 @@ sub _handle_comment {
 # _handle_proc
 #-------------------------------------------------------------------#
 sub _handle_proc {
+    $_[0]->{__XSE}->_handle_start_document({}) unless $_[0]->{__XSE}->{_started};
     $_[0]->{__XSE}->SUPER::processing_instruction({ Target => $_[1], Data => $_[2] });
 }
 #-------------------------------------------------------------------#
@@ -266,7 +277,7 @@ sub _handle_proc {
 # _handle_start_cdata
 #-------------------------------------------------------------------#
 sub _handle_start_cdata {
-    $_[0]->{__XSE}->SUPER::start_cdata();
+    $_[0]->{__XSE}->SUPER::start_cdata( {} );
 }
 #-------------------------------------------------------------------#
 
@@ -274,7 +285,7 @@ sub _handle_start_cdata {
 # _handle_end_cdata
 #-------------------------------------------------------------------#
 sub _handle_end_cdata {
-    $_[0]->{__XSE}->SUPER::end_cdata();
+    $_[0]->{__XSE}->SUPER::end_cdata( {} );
 }
 #-------------------------------------------------------------------#
 
@@ -295,7 +306,8 @@ sub _handle_xml_decl {
                 Encoding    => $encoding,
                 Standalone  => $standalone,
              };
-    $self->SUPER::xml_decl($xd);
+    #$self->SUPER::xml_decl($xd);
+    $self->_handle_start_document($xd);
 }
 #-------------------------------------------------------------------#
 
@@ -342,7 +354,7 @@ sub _handle_unparsed_entity {
 # _handle_element_decl
 #-------------------------------------------------------------------#
 sub _handle_element_decl {
-    $_[0]->{__XSE}->SUPER::element_decl({ Name => $_[1], Model => $_[2] });
+    $_[0]->{__XSE}->SUPER::element_decl({ Name => $_[1], Model => "$_[2]" });
 }
 #-------------------------------------------------------------------#
 
@@ -417,7 +429,7 @@ sub _handle_entity_decl {
     else {
         my $ent = {
                     Name        => $name,
-                    PublicId    => $pub,
+                    PublicId    => $pub || '',
                     SystemId    => $sys,
                   };
         $self->SUPER::external_entity_decl($ent);
@@ -435,6 +447,8 @@ sub _handle_start_doctype {
     my $sys     = shift;
     my $pub     = shift;
 
+    $self->_handle_start_document({}) unless $self->{_started};
+
     my $dtd = {
                 Name        => $name,
                 SystemId    => $sys,
@@ -448,11 +462,32 @@ sub _handle_start_doctype {
 # _handle_end_doctype
 #-------------------------------------------------------------------#
 sub _handle_end_doctype {
-    $_[0]->{__XSE}->SUPER::end_dtd();
+    $_[0]->{__XSE}->SUPER::end_dtd( {} );
 }
 #-------------------------------------------------------------------#
 
 
+#-------------------------------------------------------------------#
+# _handle_start_document
+#-------------------------------------------------------------------#
+sub _handle_start_document {
+    $_[0]->SUPER::start_document($_[1]);
+    $_[0]->{_started} = 1;
+}
+#-------------------------------------------------------------------#
+
+
+#-------------------------------------------------------------------#
+# supported_features
+#-------------------------------------------------------------------#
+sub supported_features {
+    return (
+             $_[0]->SUPER::supported_features,
+             'http://xml.org/sax/features/external-general-entities',
+             'http://xml.org/sax/features/external-parameter-entities',
+           );
+}
+#-------------------------------------------------------------------#
 
 
 
@@ -524,6 +559,13 @@ future):
 
 Ways of signalling them are welcome. In addition to those,
 set_document_locator is not yet called.
+
+=head1 CAVEATS
+
+  - this module supports the features http://xml.org/sax/features/external-general-entities
+    and http://xml.org/sax/features/external-parameter-entities but turning one on also turns
+    the other on (this maps to the XML::Parser ParseParamEnts option). This may be fixed in
+    the future, so don't rely on this behaviour.
 
 =head1 TODO
 
