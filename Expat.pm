@@ -13,7 +13,7 @@ use XML::NamespaceSupport   qw();
 use XML::Parser             qw();
 
 use vars qw($VERSION);
-$VERSION = '0.30';
+$VERSION = '0.35';
 
 
 #,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,#
@@ -89,31 +89,31 @@ sub _create_parser {
     my $opt  = shift;
 
     die "ParserReference: parser instance ($self) already parsing\n"
-         if defined $self->{_InParse};
+         if $self->{_InParse};
 
-    my $expat = XML::Parser->new(
-                            Handlers => {
-                                Init        => sub { $self->_handle_init(@_)            },
-                                Final       => sub { $self->_handle_final(@_)           },
-                                Start       => sub { $self->_handle_start(@_)           },
-                                End         => sub { $self->_handle_end(@_)             },
-                                Char        => sub { $self->_handle_char(@_)            },
-                                Comment     => sub { $self->_handle_comment(@_)         },
-                                Proc        => sub { $self->_handle_proc(@_)            },
-                                CdataStart  => sub { $self->_handle_start_cdata(@_)     },
-                                CdataEnd    => sub { $self->_handle_end_cdata(@_)       },
-                                Unparsed    => sub { $self->_handle_unparsed_entity(@_) },
-                                Notation    => sub { $self->_handle_notation_decl(@_)   },
-                                #ExternEnt
-                                #ExternEntFin
-                                Entity      => sub { $self->_handle_entity_decl(@_)     },
-                                Element     => sub { $self->_handle_element_decl(@_)    },
-                                Attlist     => sub { $self->_handle_attr_decl(@_)       },
-                                Doctype     => sub { $self->_handle_start_doctype(@_)   },
-                                DoctypeFin  => sub { $self->_handle_end_doctype(@_)     },
-                                XMLDecl     => sub { $self->_handle_xml_decl(@_)        },
-                                        }
-                                  );
+    my $expat = XML::Parser->new;
+    $expat->{__XSE} = $self;
+    $expat->setHandlers(
+                        Init        => \&_handle_init,
+                        Final       => \&_handle_final,
+                        Start       => \&_handle_start,
+                        End         => \&_handle_end,
+                        Char        => \&_handle_char,
+                        Comment     => \&_handle_comment,
+                        Proc        => \&_handle_proc,
+                        CdataStart  => \&_handle_start_cdata,
+                        CdataEnd    => \&_handle_end_cdata,
+                        Unparsed    => \&_handle_unparsed_entity,
+                        Notation    => \&_handle_notation_decl,
+                        #ExternEnt
+                        #ExternEntFin
+                        Entity      => \&_handle_entity_decl,
+                        Element     => \&_handle_element_decl,
+                        Attlist     => \&_handle_attr_decl,
+                        Doctype     => \&_handle_start_doctype,
+                        DoctypeFin  => \&_handle_end_doctype,
+                        XMLDecl     => \&_handle_xml_decl,
+                      );
 
     $self->{_InParse} = 1;
     $self->{_NodeStack} = [];
@@ -146,10 +146,9 @@ sub _cleanup {
 # _handle_init
 #-------------------------------------------------------------------#
 sub _handle_init {
-    my $self    = shift;
-    my $expat   = shift;
+    my $self    = shift()->{__XSE};
 
-    my $document = $self->_create_node();
+    my $document = {};
     push @{$self->{_NodeStack}}, $document;
     $self->SUPER::start_document($document);
 }
@@ -159,8 +158,7 @@ sub _handle_init {
 # _handle_final
 #-------------------------------------------------------------------#
 sub _handle_final {
-    my $self    = shift;
-    my $expat   = shift;
+    my $self    = shift()->{__XSE};
 
     my $document = pop @{$self->{_NodeStack}};
     return $self->SUPER::end_document($document);
@@ -171,58 +169,51 @@ sub _handle_final {
 # _handle_start
 #-------------------------------------------------------------------#
 sub _handle_start {
-    my $self    = shift;
-    my $expat   = shift;
+    my $self    = shift()->{__XSE};
     my $e_name  = shift;
     my %attr    = @_;
 
     # take care of namespaces
-    $self->{_NSHelper}->push_context;
+    my $nsh = $self->{_NSHelper};
+    $nsh->push_context;
     my @new_ns;
-    while (my ($k, $v) = each %attr) {
-        if ($k =~ m/^xmlns(:(.*))?$/) {
-            my $prefix = $2 || '';
-            $self->{_NSHelper}->declare_prefix($prefix, $v);
-            my $ns = $self->_create_node(
-                                        Prefix       => $prefix,
-                                        NamespaceURI => $v
-                                         );
-            push @new_ns, $ns;
-            $self->SUPER::start_prefix_mapping($ns);
-        }
+    for my $k (grep !index($_, 'xmlns'), keys %attr) {
+        $k =~ m/^xmlns(:(.*))?$/;
+        my $prefix = $2 || '';
+        $nsh->declare_prefix($prefix, $attr{$k});
+        my $ns = {
+                    Prefix       => $prefix,
+                    NamespaceURI => $attr{$k},
+                 };
+        push @new_ns, $ns;
+        $self->SUPER::start_prefix_mapping($ns);
     }
     push @{$self->{_NSStack}}, \@new_ns;
 
 
     # create the attributes
     my %saxattr;
-    while (my ($k, $v) = each %attr) {
-        my ($ns,$prefix,$lname) = $self->{_NSHelper}->process_attribute_name($k);
-        $ns ||= '';
-        $prefix ||= '';
-        $lname ||= '';
-        my $at = $self->_create_node(
-                                    Name         => $k,
-                                    LocalName    => $lname,
-                                    Prefix       => $prefix,
-                                    Value        => $v,
-                                    NamespaceURI => $ns,
-                                    );
-        $saxattr{"{$ns}$lname"} = $at;
-    }
+    map {
+        my ($ns,$prefix,$lname) = $nsh->process_attribute_name($_);
+        $saxattr{'{' . $ns. '}' . $lname} = {
+                                    Name         => $_,
+                                    LocalName    => $lname || '',
+                                    Prefix       => $prefix || '',
+                                    Value        => $attr{$_},
+                                    NamespaceURI => $ns || '',
+                                 };
+    } keys %attr;
+
 
     # now the element
-    my ($ns,$prefix,$lname) = $self->{_NSHelper}->process_element_name($e_name);
-    $ns ||= '';
-    $prefix ||= '';
-    $lname ||= '';
-    my $element = $self->_create_node(
-                                    Name         => $e_name,
-                                    LocalName    => $lname,
-                                    Prefix       => $prefix,
-                                    NamespaceURI => $ns,
-                                    Attributes   => \%saxattr,
-                                   );
+    my ($ns,$prefix,$lname) = $nsh->process_element_name($e_name);
+    my $element = {
+                    Name         => $e_name,
+                    LocalName    => $lname || '',
+                    Prefix       => $prefix || '',
+                    NamespaceURI => $ns || '',
+                    Attributes   => \%saxattr,
+                   };
 
     push @{$self->{_NodeStack}}, $element;
     $self->SUPER::start_element($element);
@@ -233,7 +224,7 @@ sub _handle_start {
 # _handle_end
 #-------------------------------------------------------------------#
 sub _handle_end {
-    my $self = shift;
+    my $self    = shift()->{__XSE};
 
     my %element = %{pop @{$self->{_NodeStack}}};
     delete $element{Attributes};
@@ -251,12 +242,7 @@ sub _handle_end {
 # _handle_char
 #-------------------------------------------------------------------#
 sub _handle_char {
-    my $self    = shift;
-    my $expat   = shift;
-    my $string  = shift;
-
-    my $characters = $self->_create_node(Data => $string);
-    $self->SUPER::characters($characters);
+    $_[0]->{__XSE}->SUPER::characters({ Data => $_[1] });
 }
 #-------------------------------------------------------------------#
 
@@ -264,12 +250,7 @@ sub _handle_char {
 # _handle_comment
 #-------------------------------------------------------------------#
 sub _handle_comment {
-    my $self    = shift;
-    my $expat   = shift;
-    my $string  = shift;
-
-    my $comment = $self->_create_node(Data => $string);
-    $self->SUPER::comment($comment);
+    $_[0]->{__XSE}->SUPER::comment({ Data => $_[1] });
 }
 #-------------------------------------------------------------------#
 
@@ -277,16 +258,7 @@ sub _handle_comment {
 # _handle_proc
 #-------------------------------------------------------------------#
 sub _handle_proc {
-    my $self    = shift;
-    my $expat   = shift;
-    my $target  = shift;
-    my $data    = shift;
-
-    my $pi = $self->_create_node(
-                                Target => $target,
-                                Data   => $data,
-                                );
-    $self->SUPER::processing_instruction($pi);
+    $_[0]->{__XSE}->SUPER::processing_instruction({ Target => $_[1], Data => $_[2] });
 }
 #-------------------------------------------------------------------#
 
@@ -294,7 +266,7 @@ sub _handle_proc {
 # _handle_start_cdata
 #-------------------------------------------------------------------#
 sub _handle_start_cdata {
-    $_[0]->SUPER::start_cdata();
+    $_[0]->{__XSE}->SUPER::start_cdata();
 }
 #-------------------------------------------------------------------#
 
@@ -302,7 +274,7 @@ sub _handle_start_cdata {
 # _handle_end_cdata
 #-------------------------------------------------------------------#
 sub _handle_end_cdata {
-    $_[0]->SUPER::end_cdata();
+    $_[0]->{__XSE}->SUPER::end_cdata();
 }
 #-------------------------------------------------------------------#
 
@@ -310,8 +282,7 @@ sub _handle_end_cdata {
 # _handle_xml_decl
 #-------------------------------------------------------------------#
 sub _handle_xml_decl {
-    my $self        = shift;
-    my $expat       = shift;
+    my $self    = shift()->{__XSE};
     my $version     = shift;
     my $encoding    = shift;
     my $standalone  = shift;
@@ -319,11 +290,11 @@ sub _handle_xml_decl {
     if (not defined $standalone) { $standalone = '';    }
     elsif ($standalone)          { $standalone = 'yes'; }
     else                         { $standalone = 'no';  }
-    my $xd = $self->_create_node(
-                                    Version     => $version,
-                                    Encoding    => $encoding,
-                                    Standalone  => $standalone,
-                                );
+    my $xd = {
+                Version     => $version,
+                Encoding    => $encoding,
+                Standalone  => $standalone,
+             };
     $self->SUPER::xml_decl($xd);
 }
 #-------------------------------------------------------------------#
@@ -332,18 +303,17 @@ sub _handle_xml_decl {
 # _handle_notation_decl
 #-------------------------------------------------------------------#
 sub _handle_notation_decl {
-    my $self        = shift;
-    my $expat       = shift;
+    my $self    = shift()->{__XSE};
     my $notation    = shift;
     shift;
     my $system      = shift;
     my $public      = shift;
 
-    my $not = $self->_create_node(
-                                    Name        => $notation,
-                                    PublicId    => $public,
-                                    SystemId    => $system,
-                                 );
+    my $not = {
+                Name        => $notation,
+                PublicId    => $public,
+                SystemId    => $system,
+              };
     $self->SUPER::notation_decl($not);
 }
 #-------------------------------------------------------------------#
@@ -352,19 +322,18 @@ sub _handle_notation_decl {
 # _handle_unparsed_entity
 #-------------------------------------------------------------------#
 sub _handle_unparsed_entity {
-    my $self        = shift;
-    my $expat       = shift;
+    my $self    = shift()->{__XSE};
     my $name        = shift;
     my $system      = shift;
     my $public      = shift;
     my $notation    = shift;
 
-    my $ue = $self->_create_node(
-                                    Name        => $name,
-                                    PublicId    => $public,
-                                    SystemId    => $system,
-                                    Notation    => $notation,
-                                 );
+    my $ue = {
+                Name        => $name,
+                PublicId    => $public,
+                SystemId    => $system,
+                Notation    => $notation,
+             };
     $self->SUPER::unparsed_entity_decl($ue);
 }
 #-------------------------------------------------------------------#
@@ -373,16 +342,7 @@ sub _handle_unparsed_entity {
 # _handle_element_decl
 #-------------------------------------------------------------------#
 sub _handle_element_decl {
-    my $self    = shift;
-    my $expat   = shift;
-    my $name    = shift;
-    my $model   = shift;
-
-    my $ed = $self->_create_node(
-                                    Name    => $name,
-                                    Model   => $model,
-                                 );
-    $self->SUPER::element_decl($ed);
+    $_[0]->{__XSE}->SUPER::element_decl({ Name => $_[1], Model => $_[2] });
 }
 #-------------------------------------------------------------------#
 
@@ -391,8 +351,7 @@ sub _handle_element_decl {
 # _handle_attr_decl
 #-------------------------------------------------------------------#
 sub _handle_attr_decl {
-    my $self    = shift;
-    my $expat   = shift;
+    my $self    = shift()->{__XSE};
     my $ename   = shift;
     my $aname   = shift;
     my $type    = shift;
@@ -419,13 +378,13 @@ sub _handle_attr_decl {
         }
     }
 
-    my $at = $self->_create_node(
-                                    eName           => $ename,
-                                    aName           => $aname,
-                                    Type            => $type,
-                                    ValueDefault    => $vd,
-                                    Value           => $value,
-                                );
+    my $at = {
+                eName           => $ename,
+                aName           => $aname,
+                Type            => $type,
+                ValueDefault    => $vd,
+                Value           => $value,
+             };
     $self->SUPER::attribute_decl($at);
 }
 #-------------------------------------------------------------------#
@@ -434,8 +393,7 @@ sub _handle_attr_decl {
 # _handle_entity_decl
 #-------------------------------------------------------------------#
 sub _handle_entity_decl {
-    my $self    = shift;
-    my $expat   = shift;
+    my $self    = shift()->{__XSE};
     my $name    = shift;
     my $val     = shift;
     my $sys     = shift;
@@ -450,18 +408,18 @@ sub _handle_entity_decl {
 
     # int vs ext
     if ($val) {
-        my $ent = $self->_create_node(
-                                        Name    => $name,
-                                        Value   => $val,
-                                     );
+        my $ent = {
+                    Name    => $name,
+                    Value   => $val,
+                  };
         $self->SUPER::internal_entity_decl($ent);
     }
     else {
-        my $ent = $self->_create_node(
-                                        Name        => $name,
-                                        PublicId    => $pub,
-                                        SystemId    => $sys,
-                                     );
+        my $ent = {
+                    Name        => $name,
+                    PublicId    => $pub,
+                    SystemId    => $sys,
+                  };
         $self->SUPER::external_entity_decl($ent);
     }
 }
@@ -472,17 +430,16 @@ sub _handle_entity_decl {
 # _handle_start_doctype
 #-------------------------------------------------------------------#
 sub _handle_start_doctype {
-    my $self    = shift;
-    my $expat   = shift;
+    my $self    = shift()->{__XSE};
     my $name    = shift;
     my $sys     = shift;
     my $pub     = shift;
 
-    my $dtd = $self->_create_node(
-                                    Name        => $name,
-                                    SystemId    => $sys,
-                                    PublicId    => $pub,
-                                 );
+    my $dtd = {
+                Name        => $name,
+                SystemId    => $sys,
+                PublicId    => $pub,
+              };
     $self->SUPER::start_dtd($dtd);
 }
 #-------------------------------------------------------------------#
@@ -491,7 +448,7 @@ sub _handle_start_doctype {
 # _handle_end_doctype
 #-------------------------------------------------------------------#
 sub _handle_end_doctype {
-    $_[0]->SUPER::end_dtd();
+    $_[0]->{__XSE}->SUPER::end_dtd();
 }
 #-------------------------------------------------------------------#
 
@@ -508,11 +465,11 @@ sub _handle_end_doctype {
 #-------------------------------------------------------------------#
 # _create_node
 #-------------------------------------------------------------------#
-sub _create_node {
-    shift;
-    # this may check for a factory later
-    return {@_};
-}
+#sub _create_node {
+#    shift;
+#    # this may check for a factory later
+#    return {@_};
+#}
 #-------------------------------------------------------------------#
 
 
@@ -580,7 +537,7 @@ perl-xml.
 
 =head1 COPYRIGHT
 
-Copyright (c) 2001 Robin Berjon. All rights reserved. This program is
+Copyright (c) 2001, 2002 Robin Berjon. All rights reserved. This program is
 free software; you can redistribute it and/or modify it under the same
 terms as Perl itself.
 

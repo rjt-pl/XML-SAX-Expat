@@ -1,6 +1,12 @@
 
 Revision history for XML::SAX::Expat:
 
+0.31 - 0.35 wed 20011219 19:10:09
+	- more bugfixes (many thanks to Barrie Slaymaker for all those patches
+	and	bug reports he sends me for breakfast)
+	- bugfix and docs (thanks to Dave Rolsky)
+	- bugfix (thanks to Sean M. Burke)
+
 0.20 - 0.30 mon 20011206 21:03:32
 	- a bunch of bugfixes
 
