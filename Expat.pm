@@ -2,7 +2,7 @@
 ###
 # XML::SAX::Expat - SAX2 Driver for Expat (XML::Parser)
 # Robin Berjon <robin@knowscape.com>
-# 04/07/2003 - v.0.36
+# 04/07/2003 - v.0.37
 # 15/10/2001 - v.0.01
 ###
 
@@ -13,7 +13,7 @@ use XML::NamespaceSupport   qw();
 use XML::Parser             qw();
 
 use vars qw($VERSION);
-$VERSION = '0.36';
+$VERSION = '0.37';
 
 
 #,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,#
@@ -203,7 +203,7 @@ sub _handle_start {
     my %saxattr;
     map {
         my ($ns,$prefix,$lname) = $nsh->process_attribute_name($_);
-        $saxattr{'{' . $ns. '}' . $lname} = {
+        $saxattr{'{' . ($ns || '') . '}' . $lname} = {
                                     Name         => $_,
                                     LocalName    => $lname || '',
                                     Prefix       => $prefix || '',

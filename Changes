@@ -1,6 +1,10 @@
 
 Revision history for XML::SAX::Expat:
 
+0.37  2003-07-04 22:22
+    - suppressed the warning for those strange people that process documents
+      without namespaces.
+
 0.36  2003-07-04 20:25
     - XML::SAX::Expat went through a thorough round of testing. A number of
       bugs were found and addressed
