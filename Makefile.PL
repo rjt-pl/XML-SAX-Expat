@@ -7,10 +7,10 @@ WriteMakefile(
     AUTHOR        => 'Robin Berjon',
     ABSTRACT      => 'SAX Driver for Expat',
     PREREQ_PM     => {
-                        XML::SAX::Base          => '0.24',
-                        XML::Parser             => '2.30',
+                        XML::SAX::Base          => '1.00',
+                        XML::Parser             => '2.27',
                         XML::NamespaceSupport   => '0.03',
-                        XML::SAX                => '0.02',
+                        XML::SAX                => '0.03',
                      },
 );
 
