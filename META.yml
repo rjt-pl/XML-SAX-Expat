@@ -1,0 +1,14 @@
+# http://module-build.sourceforge.net/META-spec.html
+#XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
+name:         XML-SAX-Expat
+version:      0.38
+version_from: Expat.pm
+installdirs:  site
+requires:
+    XML::NamespaceSupport:         0.03
+    XML::Parser:                   2.27
+    XML::SAX:                      0.03
+    XML::SAX::Base:                1.00
+
+distribution_type: module
+generated_by: ExtUtils::MakeMaker version 6.30

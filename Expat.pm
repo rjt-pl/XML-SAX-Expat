@@ -1,9 +1,7 @@
 
 ###
 # XML::SAX::Expat - SAX2 Driver for Expat (XML::Parser)
-# Robin Berjon <robin@knowscape.com>
-# 04/07/2003 - v.0.37
-# 15/10/2001 - v.0.01
+# Originally by Robin Berjon
 ###
 
 package XML::SAX::Expat;
@@ -13,7 +11,7 @@ use XML::NamespaceSupport   qw();
 use XML::Parser             qw();
 
 use vars qw($VERSION);
-$VERSION = '0.37';
+$VERSION = '0.38';
 
 
 #,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,#
@@ -93,7 +91,7 @@ sub _create_parser {
 
     my $featUri = 'http://xml.org/sax/features/';
     my $ppe = ($self->get_feature($featUri . 'external-general-entities') or
-               $self->get_feature($featUri . 'external-parameter-entities') ) ? 'yes' : 'no';
+               $self->get_feature($featUri . 'external-parameter-entities') ) ? 1 : 0;
 
     my $expat = XML::Parser->new( ParseParamEnt => $ppe );
     $expat->{__XSE} = $self;
@@ -573,13 +571,13 @@ set_document_locator is not yet called.
 
 =head1 AUTHOR
 
-Robin Berjon, robin@knowscape.com; stolen from Ken Macleod,
-ken@bitsko.slc.ut.us, and with suggestions and feedback from
-perl-xml.
+Robin Berjon; stolen from Ken Macleod, ken@bitsko.slc.ut.us, and with
+suggestions and feedback from perl-xml. Currently maintained by Bjoern
+Hoehrmann L<http://bjoern.hoehrmann.de/>.
 
 =head1 COPYRIGHT
 
-Copyright (c) 2001, 2002 Robin Berjon. All rights reserved. This program is
+Copyright (c) 2001-2007 Robin Berjon. All rights reserved. This program is
 free software; you can redistribute it and/or modify it under the same
 terms as Perl itself.
 
