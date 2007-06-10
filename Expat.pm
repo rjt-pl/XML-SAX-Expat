@@ -11,7 +11,7 @@ use XML::NamespaceSupport   qw();
 use XML::Parser             qw();
 
 use vars qw($VERSION);
-$VERSION = '0.38';
+$VERSION = '0.39';
 
 
 #,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,#

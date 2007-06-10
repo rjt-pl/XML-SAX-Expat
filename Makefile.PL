@@ -19,13 +19,16 @@ WriteMakefile(
 sub MY::install {
     package MY;
     my $script = shift->SUPER::install(@_);
-    $script =~ s/install :: (.*)$/install :: $1 install_sax_expat/m;
-    $script .= <<"INSTALL";
+    unless ($ENV{'SKIP_SAX_INSTALL'}) {
+      $script =~ s/install :: (.*)$/install :: $1 install_sax_expat/m;
+      $script .= <<"INSTALL";
 
 install_sax_expat :
-\t\@\$(PERL) -MXML::SAX -e "XML::SAX->add_parser(q(XML::SAX::Expat))->save_parsers()"
+\t\@\$(PERL) -I\$(INSTALLSITELIB) -MXML::SAX -e "XML::SAX->add_parser(q(XML::SAX::Expat))->save_parsers()"
 
 INSTALL
-
+    } else {
+      warn "Note: 'make install' will skip XML::SAX::Expat registration with XML::SAX!\n";
+    }
     return $script;
 }

@@ -1,6 +1,10 @@
 
 Revision history for XML::SAX::Expat:
 
+0.39	2007-06-10 08:00
+    - check SKIP_SAX_INSTALL environment variable; thanks to Klaus Heinz for
+      the patch.
+
 0.38	2007-01-25 14:00
     - fix for http://rt.cpan.org/Public/Bug/Display.html?id=7434. Thanks to
       Bjoern Hoehrmann <http://bjoern.hoehrmann.de/> for the bug report, and
