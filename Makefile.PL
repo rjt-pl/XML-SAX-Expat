@@ -12,6 +12,13 @@ WriteMakefile(
                         XML::NamespaceSupport   => '0.03',
                         XML::SAX                => '0.03',
                      },
+
+    LICENSE       => 'perl',
+    'dist'        => {
+      PREOP     => 'chmod 600 Makefile.PL',
+      TARFLAGS	=> '--group=cpan --owner=bjoern -cvf',
+    },
+
 );
 
 

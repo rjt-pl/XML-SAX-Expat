@@ -1,6 +1,9 @@
 
 Revision history for XML::SAX::Expat:
 
+0.40	2008-06-30 08:00
+    - small Kwalitee improvements
+
 0.39	2007-06-10 08:00
     - check SKIP_SAX_INSTALL environment variable; thanks to Klaus Heinz for
       the patch.

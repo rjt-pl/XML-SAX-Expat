@@ -3,4 +3,7 @@ Expat.pm
 Makefile.PL
 MANIFEST
 t/00basic.t
+t/98podsyn.t
+t/99podcov.t
+eg/counter.pl
 META.yml                                 Module meta-data (added by MakeMaker)

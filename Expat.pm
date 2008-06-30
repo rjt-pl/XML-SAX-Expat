@@ -11,7 +11,7 @@ use XML::NamespaceSupport   qw();
 use XML::Parser             qw();
 
 use vars qw($VERSION);
-$VERSION = '0.39';
+$VERSION = '0.40';
 
 
 #,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,#
@@ -543,6 +543,23 @@ works.
 The methods defined in this class correspond to those listed in the
 PerlSAX2 specification, available above.
 
+=head1 FEATURES AND CAVEATS
+
+=over 2
+
+=item supported_features
+
+Returns:
+
+  * http://xml.org/sax/features/external-general-entities
+  * http://xml.org/sax/features/external-parameter-entities
+  * [ Features supported by ancestors ]
+
+Turning one of the first two on also turns the other on (this maps
+to the XML::Parser ParseParamEnts option). This may be fixed in the
+future, so don't rely on this behaviour.
+
+=back
 
 =head1 MISSING PARTS
 
@@ -558,13 +575,6 @@ future):
 Ways of signalling them are welcome. In addition to those,
 set_document_locator is not yet called.
 
-=head1 CAVEATS
-
-  - this module supports the features http://xml.org/sax/features/external-general-entities
-    and http://xml.org/sax/features/external-parameter-entities but turning one on also turns
-    the other on (this maps to the XML::Parser ParseParamEnts option). This may be fixed in
-    the future, so don't rely on this behaviour.
-
 =head1 TODO
 
   - reuse Ken's tests and add more
@@ -575,9 +585,9 @@ Robin Berjon; stolen from Ken Macleod, ken@bitsko.slc.ut.us, and with
 suggestions and feedback from perl-xml. Currently maintained by Bjoern
 Hoehrmann L<http://bjoern.hoehrmann.de/>.
 
-=head1 COPYRIGHT
+=head1 COPYRIGHT AND LICENSE
 
-Copyright (c) 2001-2007 Robin Berjon. All rights reserved. This program is
+Copyright (c) 2001-2008 Robin Berjon. All rights reserved. This program is
 free software; you can redistribute it and/or modify it under the same
 terms as Perl itself.
 
